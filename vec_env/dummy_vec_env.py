@@ -31,6 +31,7 @@ class DummyVecEnv(VecEnv):
     def step_async(self, actions):
         listify = True
         try:
+            # it looks like that the actions can not be one-dimensional.
             if len(actions) == self.num_envs:
                 listify = False
         except TypeError:
