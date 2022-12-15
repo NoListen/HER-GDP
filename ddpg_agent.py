@@ -6,6 +6,7 @@ from models import actor, critic
 from replay_buffer import replay_buffer, replay_buffer_goal_density, replay_buffer_entropy
 from normalizer import normalizer
 from her import her_sampler
+import time
 
 """
 ddpg with HER
@@ -16,6 +17,7 @@ class ddpg_agent:
         self.args = args
         self.env = env
         self.env_params = env_params
+        self.num_envs = self.env.num_envs
 
         # create the network
         self.actor_network = actor(env_params)
@@ -90,7 +92,7 @@ class ddpg_agent:
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
 
                 #print('[{}] epoch: {}, cycle: {}, collecting trajectories'.format(datetime.now(),epoch, cycle))
-
+                cycle_start = time.time()
                 for j in range(self.args.num_rollouts_per_cycle):
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
@@ -133,12 +135,14 @@ class ddpg_agent:
                 mb_ag = np.array(mb_ag)
                 mb_g = np.array(mb_g)
                 mb_actions = np.array(mb_actions)
-
+                print("Each cycle would cost", time.time() - cycle_start)
 
                 if self.args.prioritization == 'goaldensity' or 'entropy':
                     if (cycle % self.args.fit_interval == 0) and (not cycle == 0) or (cycle == self.args.n_cycles-1):
                         print('[{}] epoch: {}, cycle: {}, updating density model'.format(datetime.now(),epoch, cycle))
+                        fit_start = time.time()
                         self.buffer.fit_density_model()
+                        print("Fit the density model takes", time.time() - fit_start)
                         print('[{}] density model updated.'.format(datetime.now()))
 
 
@@ -181,7 +185,7 @@ class ddpg_agent:
         obs_norm = self.o_norm.normalize(obs)
         g_norm = self.g_norm.normalize(g)
         # concatenate the stuffs
-        inputs = np.concatenate([obs_norm, g_norm])
+        inputs = np.concatenate([obs_norm, g_norm], axis=-1)
         inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
         if self.args.cuda:
             inputs = inputs.cuda()
@@ -313,8 +317,11 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         total_success_rate = []
-        for _ in range(self.args.n_test_rollouts):
+        if self.args.n_test_rollouts % self.num_envs != 0:
+            print("The exact test rollouts are:", self.num_envs * self.args.n_test_rollouts//self.num_envs))
+        for _ in range(self.args.n_test_rollouts//self.num_envs):
             per_success_rate = []
+            # import ipdb; ipdb.set_trace()
             observation = self.env.reset()
             obs = observation['observation']
             g = observation['desired_goal']
@@ -327,7 +334,7 @@ class ddpg_agent:
                 observation_new, _, _, info = self.env.step(actions)
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
-                per_success_rate.append(info['is_success'])
+                per_success_rate.append(np.mean(info['is_success']))
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)
         local_success_rate = np.mean(total_success_rate[:, -1])
