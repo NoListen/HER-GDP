@@ -318,10 +318,9 @@ class ddpg_agent:
     def _eval_agent(self):
         total_success_rate = []
         if self.args.n_test_rollouts % self.num_envs != 0:
-            print("The exact test rollouts are:", self.num_envs * self.args.n_test_rollouts//self.num_envs))
+            print("The exact test rollouts are:", self.num_envs * self.args.n_test_rollouts//self.num_envs)
         for _ in range(self.args.n_test_rollouts//self.num_envs):
             per_success_rate = []
-            # import ipdb; ipdb.set_trace()
             observation = self.env.reset()
             obs = observation['observation']
             g = observation['desired_goal']
@@ -332,9 +331,11 @@ class ddpg_agent:
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze()
                 observation_new, _, _, info = self.env.step(actions)
+                # import ipdb; ipdb.set_trace()
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
-                per_success_rate.append(np.mean(info['is_success']))
+                mean_vec_success_rates = np.mean([x['is_success'] for x in info])
+                per_success_rate.append(mean_vec_success_rates)
             total_success_rate.append(per_success_rate)
         total_success_rate = np.array(total_success_rate)
         local_success_rate = np.mean(total_success_rate[:, -1])
