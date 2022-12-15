@@ -42,7 +42,7 @@ def get_args():
     parser.add_argument('--fit-interval', type=int, default=50, help='fit interval for updating density model during a epoch, disabled when equal to --n-cycles')
     parser.add_argument('--temperature', type=float, default=1.0, help='temperature value for Entropy-Based Prioritization (MEP)')
     parser.add_argument('--rank-method', type=str, default='density', help='energy ranking method. select from "density", "rank" for GDP, select from "none", "dense" for MEP')
-
+    parser.add_argument('--num-envs', type=int, default=1, help="the number of environments collecting data in parallel")
     args = parser.parse_args()
 
     return args
