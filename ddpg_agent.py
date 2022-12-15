@@ -49,6 +49,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
 
         # create the replay buffer
+        # NOTE Their replay buffer looks quite similar
         if self.args.prioritization == 'goaldensity':
             self.buffer = replay_buffer_goal_density(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions_goal_density)
         elif self.args.prioritization == 'entropy':
@@ -117,6 +118,8 @@ class ddpg_agent:
                         # re-assign the observation
                         obs = obs_new
                         ag = ag_new
+
+                    # NOTE the last observation is ignored.
 
                     ep_obs.append(obs.copy())
                     ep_ag.append(ag.copy())

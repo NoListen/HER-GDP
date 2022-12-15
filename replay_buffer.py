@@ -102,12 +102,12 @@ class replay_buffer_goal_density:
         self.pred_avg = 0
 
         # create the buffer to store info
+        # the last three are associated together.
         self.buffers = {'obs': np.empty([self.size_in_rollouts, self.T + 1, self.env_params['obs']]),
                         'ag': np.empty([self.size_in_rollouts, self.T + 1, self.env_params['goal']]),
                         'g': np.empty([self.size_in_rollouts, self.T, self.env_params['goal']]),
                         'actions': np.empty([self.size_in_rollouts, self.T, self.env_params['action']]),
-
-                        'pair':np.empty([self.size_in_rollouts * self.T, 2*self.env_params['goal']]),
+                        'pair':np.empty([self.size_in_rollouts * self.T, 2*self.env_params['goal']]), # pair is  a flatten buffer.
                         'd': np.zeros([self.size_in_rollouts * self.T, 1]), # goal pair density
                         'p': np.zeros([self.size_in_rollouts * self.T, 1]), # priority/ranking
                         }
@@ -115,7 +115,7 @@ class replay_buffer_goal_density:
         # thread lock
         self.lock = threading.Lock()
 
-
+    # this part equals to updating priorities
     def fit_density_model(self):
         X_train = self.buffers['pair'][:(self.current_size_in_rollouts * self.T)]
         self.clf = mixture.BayesianGaussianMixture(weight_concentration_prior_type="dirichlet_distribution", n_components=10, max_iter=300)
@@ -135,6 +135,7 @@ class replay_buffer_goal_density:
 
 
     # store the episode
+    # TODO How to sample data.
     def store_episode(self, episode_batch, rank_method):
         mb_obs, mb_ag, mb_g, mb_actions = episode_batch
         batch_size = mb_obs.shape[0]
@@ -149,7 +150,7 @@ class replay_buffer_goal_density:
         if not isinstance(self.clf, int):
             pred = -self.clf.score_samples(mb_pairs)
 
-            pred = pred - self.pred_min
+            pred = pred - self.pred_min # how to update pred_min
             pred = np.clip(pred, 0, None)
             pred = pred / self.pred_sum
 
@@ -173,10 +174,12 @@ class replay_buffer_goal_density:
 
             if not isinstance(self.clf, int):
                 for i in range(self.T):
+                    # obtained from the predictions.
                     self.buffers['d'][idxs*self.T + i] = mb_d[idxs_pair*self.T + i]
 
                 density_pairs = self.buffers['d'][:(self.current_size_in_rollouts * self.T)]
 
+                # recalucuate the rank for them.
                 if rank_method == 'density':
                     complement_density = 1 - density_pairs
                     self.buffers['p'][:(self.current_size_in_rollouts * self.T)] = complement_density.copy()
@@ -188,8 +191,11 @@ class replay_buffer_goal_density:
                     self.buffers['p'][:(self.current_size_in_rollouts * self.T)] = density_rank.copy()
 
     # sample the data from the replay buffer
+    # it is super time-consuming to copy the whole dataset.
+    # why not perform in-place calculation?
     def sample(self, batch_size, rank_method, temperature):
         temp_buffers = {}
+
         with self.lock:
             assert self.current_size_in_rollouts > 0
             for key in self.buffers.keys():
