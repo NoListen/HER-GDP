@@ -335,7 +335,7 @@ class ddpg_agent:
     def _eval_agent(self):
         total_success_rate = []
         if self.args.n_test_rollouts % self.num_envs != 0:
-            print("The exact test rollouts are:", self.num_envs * self.args.n_test_rollouts//self.num_envs)
+            print("The exact test rollouts are:", self.num_envs * (self.args.n_test_rollouts//self.num_envs))
         for _ in range(self.args.n_test_rollouts//self.num_envs):
             per_success_rate = []
             observation = self.env.reset()
