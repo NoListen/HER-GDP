@@ -12,6 +12,19 @@ import time
 ddpg with HER
 
 """
+
+
+def vec_stack(input_list):
+    # input_list: each element in the input should be of shape [num_envs, **input_shape]
+    # return: the stacked inputs of shape [num_envs, len(input_list), **input_shape] 
+    return np.stack(input_list, axis=1)
+
+def vec_concat(seq_list):
+    # seq_list: each element should of shape [num_envs, seq_length, element_shape]
+    # return: the concatenated seqs of shape [num_envs * len(seq_list), seq_length, element_shape]
+    return np.concatenate(seq_list, axis=0)
+
+
 class ddpg_agent:
     def __init__(self, args, env, env_params):
         self.args = args
@@ -93,7 +106,7 @@ class ddpg_agent:
 
                 #print('[{}] epoch: {}, cycle: {}, collecting trajectories'.format(datetime.now(),epoch, cycle))
                 cycle_start = time.time()
-                for j in range(self.args.num_rollouts_per_cycle):
+                for j in range(self.args.num_rollouts_per_cycle//self.num_envs):
                     # reset the rollouts
                     ep_obs, ep_ag, ep_g, ep_actions = [], [], [], []
                     # reset the environment
@@ -125,16 +138,20 @@ class ddpg_agent:
 
                     ep_obs.append(obs.copy())
                     ep_ag.append(ag.copy())
-                    mb_obs.append(ep_obs)
-                    mb_ag.append(ep_ag)
-                    mb_g.append(ep_g)
-                    mb_actions.append(ep_actions)
 
+                    mb_obs.append(vec_stack(ep_obs))
+                    mb_ag.append(vec_stack(ep_ag))
+                    mb_g.append(vec_stack(ep_g))
+                    mb_actions.append(vec_stack(ep_actions))
+                
+                # import ipdb; ipdb.set_trace()
                 # convert them into arrays
-                mb_obs = np.array(mb_obs)
-                mb_ag = np.array(mb_ag)
-                mb_g = np.array(mb_g)
-                mb_actions = np.array(mb_actions)
+                mb_obs = vec_concat(mb_obs)
+                mb_ag = vec_concat(mb_ag)
+                mb_g = vec_concat(mb_g)
+                mb_actions = vec_concat(mb_actions)
+                print(mb_obs.shape)
+
                 print("Each cycle would cost", time.time() - cycle_start)
 
                 if self.args.prioritization == 'goaldensity' or 'entropy':
