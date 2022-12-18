@@ -225,7 +225,7 @@ class ddpg_agent:
                                             size=[n_actions, self.env_params['action']])
 
         # choose if to use the random actions
-        action += np.random.binomial(1, self.args.random_eps, 1)[0] * (random_actions - action)
+        action += np.random.binomial(1, self.args.random_eps, (n_actions, 1)) * (random_actions - action)
         return action
 
     # update the normalizer
