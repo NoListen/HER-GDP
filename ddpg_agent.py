@@ -73,7 +73,6 @@ class ddpg_agent:
             self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
 
 
-        # create the normalizer
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
 
@@ -150,7 +149,6 @@ class ddpg_agent:
                 mb_ag = vec_concat(mb_ag)
                 mb_g = vec_concat(mb_g)
                 mb_actions = vec_concat(mb_actions)
-                print(mb_obs.shape)
 
                 print("Each cycle would cost", time.time() - cycle_start)
 
@@ -203,7 +201,8 @@ class ddpg_agent:
         g_norm = self.g_norm.normalize(g)
         # concatenate the stuffs
         inputs = np.concatenate([obs_norm, g_norm], axis=-1)
-        inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
+        # vec env do not need to unsqueeze along the first dimension any more.
+        inputs = torch.tensor(inputs, dtype=torch.float32)
         if self.args.cuda:
             inputs = inputs.cuda()
         return inputs
@@ -215,14 +214,15 @@ class ddpg_agent:
 
     # this function will choose action for the agent and do the exploration
     def _action_postpro(self, pi):
-        action = pi.cpu().numpy().squeeze()
+        action = pi.cpu().numpy()
         # add the gaussian
         action += self.args.noise_eps * self.env_params['action_max'] * np.random.randn(*action.shape)
         action = np.clip(action, -self.env_params['action_max'], self.env_params['action_max'])
 
         # generate random actions...
+        n_actions = action.shape[0]
         random_actions = np.random.uniform(low=-self.env_params['action_max'], high=self.env_params['action_max'], \
-                                            size=self.env_params['action'])
+                                            size=[n_actions, self.env_params['action']])
 
         # choose if to use the random actions
         action += np.random.binomial(1, self.args.random_eps, 1)[0] * (random_actions - action)
@@ -346,7 +346,7 @@ class ddpg_agent:
                     input_tensor = self._preproc_inputs(obs, g)
                     pi = self.actor_network(input_tensor)
                     # convert the actions
-                    actions = pi.detach().cpu().numpy().squeeze()
+                    actions = pi.detach().cpu().numpy()
                 observation_new, _, _, info = self.env.step(actions)
                 # import ipdb; ipdb.set_trace()
                 obs = observation_new['observation']
