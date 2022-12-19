@@ -78,15 +78,15 @@ class ddpg_agent:
 
         # create the dict for store the model
         if not os.path.exists(self.args.save_dir):
-            os.mkdir(self.args.save_dir)
+            os.makedirs(self.args.save_dir, exist_ok=True)
 
         # path to save the model
         self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
         if not os.path.exists(self.model_path):
-            os.mkdir(self.model_path)
+            os.makedirs(self.model_path, exist_ok=True)
         self.model_path = os.path.join(self.model_path, 'seed_' + str(self.args.seed))
         if not os.path.exists(self.model_path):
-            os.mkdir(self.model_path)
+            os.makedirs(self.model_path, exist_ok=True)
 
 
     def learn(self):
