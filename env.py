@@ -1,6 +1,27 @@
 import gym
+import numpy as np
+import random
 from vec_env.dummy_vec_env import DummyVecEnv
 from vec_env.subproc_vec_env import SubprocVecEnv
+
+def set_global_seeds(seed):
+  """
+    set the seed for python random, tensorflow, numpy and gym spaces
+
+    :param seed: (int) the seed
+    """
+#   if tf is not None:
+#     if hasattr(tf.random, 'set_seed'):
+#       tf.random.set_seed(seed)
+#     elif hasattr(tf.compat, 'v1'):
+#       tf.compat.v1.set_random_seed(seed)
+#     else:
+#       tf.set_random_seed(seed)
+  np.random.seed(seed)
+  random.seed(seed)
+  # prng was removed in latest gym version
+  if hasattr(gym.spaces, 'prng'):
+    gym.spaces.prng.seed(seed)
 
 def get_env_params(env):
     obs = env.reset()
@@ -39,6 +60,7 @@ def make_env_by_id(env_id, seed, rank):
         # currently, we only support the six envs used in the benchmarks
         env = gym.make(env_id)
         env.seed(seed + rank)
+        set_global_seeds(seed + rank)
         return env
     return _init
    
